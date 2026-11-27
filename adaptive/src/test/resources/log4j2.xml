@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <!-- Define standard appenders like Console or RollingFile -->
+        <Console name="CONSOLE">
+            <PatternLayout pattern="%d{ISO8601} %-5p [%t] taskName:[%X{taskName}] %c{1} - %m%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <!-- The default synchronous root logger -->
+        <AsyncRoot level="info">
+            <AppenderRef ref="CONSOLE"/>
+        </AsyncRoot>
+    </Loggers>
+</Configuration>

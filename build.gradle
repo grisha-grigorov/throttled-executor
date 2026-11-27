@@ -1,0 +1,11 @@
+/*
+ * Root build of the executors library family. Everything a member module needs — group,
+ * version, toolchain, Java 17 floor, test plumbing — lives in the shared convention plugin
+ * (buildSrc/src/main/groovy/com.grex.executors-library.gradle); this file only names the
+ * repository every module resolves from.
+ */
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+}

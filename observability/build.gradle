@@ -1,0 +1,33 @@
+/*
+ * executors-observability — a bounded execution-history tree ("flight recorder") over the
+ * task-listener SPI, plus a JMX view. Keeps metadata about every task — what ran, where in
+ * the executor tree, when, for how long, how it ended — while the tasks themselves are
+ * garbage collected. History grows along both axes (records per executor, executors per
+ * tree) but is bounded on both; what scrolls off is folded into permanent aggregates.
+ *
+ * Built strictly against core's PUBLIC SPI — no core internals, no core changes. Group,
+ * Java 17 floor and test plumbing come from the family convention plugin
+ * (buildSrc/src/main/groovy/com.grex.executors-library.gradle).
+ */
+
+plugins {
+    id "com.grex.executors-library"
+}
+
+description = "executors-observability"
+
+dependencies {
+
+    // `api`, not `implementation`: this module's public types reference core's SPI types
+    // (TaskExecutionListener, TaskDescriptor, TaskOutcome) in their signatures.
+    api project(":executors-core")
+
+    // Test binding + the disruptor the test log4j2.xml's <AsyncRoot> needs at runtime.
+    testImplementation libs.log4j.slf4j2
+    testRuntimeOnly libs.disruptor
+
+    testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.platform.launcher
+    testImplementation libs.awaitility
+    testImplementation libs.assertj
+}

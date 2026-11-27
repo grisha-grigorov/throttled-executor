@@ -1,0 +1,32 @@
+# Gradle Version Catalog — single source of truth for dependency coordinates.
+# Dependency versions live ONLY here; never hardcode a group:artifact:version string in a
+# module build.gradle.
+
+[versions]
+# Resolved from what log4j-slf4j2-impl 2.25.2 already brings in; keep the two in step.
+slf4jApi = "2.0.17"
+log4jSlf4j = "2.25.2"
+disruptor = "4.0.0"
+micrometerCore = "1.11.1"
+junit = "5.11.0"
+# JUnit Platform ships on its own version line: Jupiter 5.11.0 -> Platform 1.11.0.
+junitPlatform = "1.11.0"
+awaitility = "4.3.0"
+assertj = "3.25.3"
+
+[libraries]
+# --- Logging ---
+# slf4j-api is the API the library compiles against; log4j-slf4j2 is a BINDING and belongs
+# on a test configuration only, so consumers keep their own choice.
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4jApi" }
+log4j-slf4j2 = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "log4jSlf4j" }
+disruptor = { module = "com.lmax:disruptor", version.ref = "disruptor" }
+
+# --- Metrics (executors-micrometer) ---
+micrometer-core = { module = "io.micrometer:micrometer-core", version.ref = "micrometerCore" }
+
+# --- Test ---
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }
+assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }

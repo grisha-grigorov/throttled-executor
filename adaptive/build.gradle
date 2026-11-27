@@ -1,0 +1,39 @@
+/*
+ * executors-adaptive — learn each task's memory cost, throttle the next run on it.
+ *
+ * A task may be submitted without a size (-1) or with a rough input size (bytes to read);
+ * a listener MEASURES what it actually cost (per-thread allocation and, when the task ran
+ * alone, the heap peak), a store REMEMBERS it per task name — across restarts — and a policy
+ * decorator RESIZES the task on the fly before the wrapped budget policy sees it. Unknown
+ * tasks are quarantined (run alone, reserving the heap) exactly once.
+ *
+ * Built strictly against core's PUBLIC SPI (AdmissionPolicy, TaskExecutionListener,
+ * TaskDescriptor) — no core internals, no core changes. Group, Java 17 floor and test
+ * plumbing come from the family convention plugin
+ * (buildSrc/src/main/groovy/com.grex.executors-library.gradle).
+ *
+ * Deliberately NO META-INF/services entry: discovery makes no sense for something that
+ * needs a profile-store path; attach it explicitly.
+ */
+
+plugins {
+    id "com.grex.executors-library"
+}
+
+description = "executors-adaptive"
+
+dependencies {
+
+    // `api`, not `implementation`: this module's public types reference core's SPI types
+    // (AdmissionPolicy, TaskExecutionListener, ThrottledTask) in their signatures.
+    api project(":executors-core")
+
+    // Test binding + the disruptor the test log4j2.xml's <AsyncRoot> needs at runtime.
+    testImplementation libs.log4j.slf4j2
+    testRuntimeOnly libs.disruptor
+
+    testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.platform.launcher
+    testImplementation libs.awaitility
+    testImplementation libs.assertj
+}

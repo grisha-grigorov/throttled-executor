@@ -1,0 +1,27 @@
+/*
+ * Toolchain resolver: lets Gradle locate or auto-provision the JDKs the build asks for —
+ * the Liberica 25 toolchain in buildSrc's convention plugin, the daemon JVM pinned in
+ * gradle/gradle-daemon-jvm.properties, and the Liberica 17 launcher that
+ * :executors-core:jarTest17 runs the Java 17 smoke suite on.
+ */
+plugins {
+    id "org.gradle.toolchains.foojay-resolver-convention" version "1.0.0"
+}
+
+rootProject.name = "ThrottledExecutorLibrary"
+
+/*
+ * The executors library family. The repository root holds the family's docs; each member is
+ * its own flat-named project sharing the com.grex.executors-library convention (buildSrc).
+ */
+include ":executors-core"
+include ":executors-jfr"
+include ":executors-observability"
+include ":executors-adaptive"
+include ":executors-micrometer"
+
+project(":executors-core").projectDir = "$rootDir/core" as File
+project(":executors-jfr").projectDir = "$rootDir/jfr" as File
+project(":executors-observability").projectDir = "$rootDir/observability" as File
+project(":executors-adaptive").projectDir = "$rootDir/adaptive" as File
+project(":executors-micrometer").projectDir = "$rootDir/micrometer" as File

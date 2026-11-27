@@ -1,0 +1,38 @@
+/*
+ * executors-micrometer — a TaskExecutionListener that publishes executor activity to a
+ * Micrometer MeterRegistry, so the library's numbers land wherever the application's other
+ * metrics already go (Prometheus, JMX, a Spring Boot actuator endpoint).
+ *
+ * The observability satellite answers "what happened, in this JVM, right now" through its own
+ * MBean; this one answers "what is happening over time" through infrastructure the consumer
+ * already runs. Neither is a replacement for the other.
+ *
+ * Group, Java 17 floor and test plumbing come from the family convention plugin
+ * (buildSrc/src/main/groovy/com.grex.executors-library.gradle).
+ */
+
+plugins {
+    id "com.grex.executors-library"
+}
+
+description = "executors-micrometer"
+
+dependencies {
+
+    // `api`, not `implementation`: this module's public types reference core's SPI types
+    // (TaskExecutionListener, TaskDescriptor, TaskOutcome) in their signatures.
+    api project(":executors-core")
+
+    // Likewise `api`: the binder's constructor takes a MeterRegistry, so a consumer cannot
+    // call it without micrometer-core on their own compile classpath.
+    api libs.micrometer.core
+
+    // Test binding + the disruptor the test log4j2.xml's <AsyncRoot> needs at runtime.
+    testImplementation libs.log4j.slf4j2
+    testRuntimeOnly libs.disruptor
+
+    testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.platform.launcher
+    testImplementation libs.awaitility
+    testImplementation libs.assertj
+}

@@ -1,0 +1,31 @@
+/*
+ * executors-jfr — a TaskExecutionListener that emits one Java Flight Recorder event per
+ * task, so executor activity shows up in JDK Mission Control alongside the JVM's own
+ * events. Uses jdk.jfr (in the JDK since 11, no dependency) and core's public SPI only.
+ *
+ * The first satellite of the family, and the proof that a satellite can do something
+ * genuinely useful through the SPI alone. Group, Java 17 floor and test plumbing come from
+ * the family convention plugin (buildSrc/src/main/groovy/com.grex.executors-library.gradle).
+ */
+
+plugins {
+    id "com.grex.executors-library"
+}
+
+description = "executors-jfr"
+
+dependencies {
+
+    // `api`, not `implementation`: this module's public types reference core's SPI types
+    // (TaskExecutionListener, TaskDescriptor, TaskOutcome) in their signatures.
+    api project(":executors-core")
+
+    // Test binding + the disruptor the test log4j2.xml's <AsyncRoot> needs at runtime.
+    testImplementation libs.log4j.slf4j2
+    testRuntimeOnly libs.disruptor
+
+    testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.platform.launcher
+    testImplementation libs.awaitility
+    testImplementation libs.assertj
+}

@@ -1,0 +1,16 @@
+# mise — Runtime & Environment Lock
+# https://mise.jdx.dev
+# Run `mise install` after cloning to get all tools at the correct versions.
+#
+# Java: BellSoft Liberica JDK Full — native Apple Silicon ARM64. Gradle is deliberately NOT
+# managed here: the repository ships the Gradle wrapper (./gradlew, version + SHA-256 pinned
+# in gradle/gradle-wrapper.properties), which is the single source of truth for the Gradle
+# version across CLI, IDE and CI.
+
+[tools]
+java = "liberica-25.0.2+12"
+just = "latest"
+
+[env]
+# Force Gradle to use the mise-managed Liberica JDK
+JAVA_HOME = "{{env.HOME}}/.local/share/mise/installs/java/liberica-25.0.2+12"

@@ -1,0 +1,171 @@
+/*
+ * executors-core — the throttled executor, the executor tree, the admission-policy and
+ * task-listener SPIs, the two backends. Zero runtime dependencies beyond slf4j-api.
+ *
+ * Group, Java 17 floor, eclipse and test-JVM plumbing come from the family convention
+ * plugin (buildSrc/src/main/groovy/com.grex.executors-library.gradle).
+ */
+
+plugins {
+    id "com.grex.executors-library"
+}
+
+description = "executors-core"
+
+/*
+ * ── Multi-release jar (JEP 238) ──────────────────────────────────────────────────────
+ *
+ * The module's API floor is Java 17, so the base sources cannot call
+ * Executors.newVirtualThreadPerTaskExecutor() directly — the virtual-thread backend uses
+ * a reflective probe. src/main/java21 holds a SECOND compiled variant of the one seam
+ * class (VirtualThreadSupport), making the direct, compile-checked call; the jar packs it
+ * under META-INF/versions/21, and any 21+ JVM running the JAR selects it automatically.
+ * A 17-20 JVM — and any run against the classes DIRECTORY, where version selection does
+ * not apply — keeps the base probe, which behaves identically.
+ *
+ * Discipline: version only tiny internal classes behind a stable facade, one if possible;
+ * both variants must present the identical API. (Two same-FQN files also make the IDE
+ * grumble — a further reason to keep the versioned set minimal.)
+ */
+sourceSets {
+    java21 {
+        java.srcDirs = ["src/main/java21"]
+    }
+}
+
+tasks.named("compileJava21Java") {
+    // The family convention pins compileJava to release 17; this source set is the 21 layer.
+    options.release = 21
+}
+
+tasks.named("jar") {
+    manifest {
+        attributes("Multi-Release": "true")
+    }
+    into("META-INF/versions/21") {
+        from sourceSets.java21.output
+    }
+}
+
+dependencies {
+
+    /*
+     * SLF4J is part of this library's COMPILE SURFACE — LogMarkers exposes
+     * org.slf4j.Marker and ThreadContextAwareCompletionException captures an MDC map —
+     * so it is `api`, declared explicitly rather than inherited transitively.
+     */
+    api libs.slf4j.api
+
+    /*
+     * log4j2 is a BINDING, not an API. A library that puts one on `implementation`
+     * forces that logging backend onto every consumer. Scoped to the test
+     * configurations it stays out of the published surface entirely.
+     *
+     * testImplementation rather than testRuntimeOnly because the tests compile against
+     * log4j-api directly (ThrottledExecutor_API_Tests uses LogManager to drive the
+     * async logger context).
+     */
+    testImplementation libs.log4j.slf4j2
+    // Required at RUNTIME by the <AsyncRoot> in the test log4j2.xml; never compiled against.
+    testRuntimeOnly libs.disruptor
+
+    // The junit-jupiter aggregate transitively supplies both the api and the engine.
+    testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.platform.launcher
+    testImplementation libs.awaitility
+    testImplementation libs.assertj
+}
+
+tasks.named("test") {
+    useJUnitPlatform {
+        /*
+         * shutdownThreadExecutors() tears down process-wide pools, so those tests
+         * cannot share a JVM with the rest of the suite. They run in `shutdownTest`.
+         */
+        excludeTags "shutdown"
+    }
+}
+
+/*
+ * Static-shutdown tests, isolated in their own JVM because they destroy JVM-global
+ * state that every other test depends on. Core-only: it is the module that owns the
+ * shared pools (and Gradle fails a Test task that discovers no tests, so registering this
+ * in the family convention would break every satellite).
+ */
+tasks.register("shutdownTest", Test) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags "shutdown"
+    }
+}
+
+/*
+ * The main suite again, but against THE JAR instead of the classes directory.
+ *
+ * This distinction is the whole point of a multi-release jar's test story: version
+ * selection (META-INF/versions/N) only happens for classes loaded from a jar. A suite
+ * that runs against build/classes/java/main can never execute a versioned variant, so a
+ * broken one would ship silently. On a 21+ JVM this task exercises the versions/21
+ * classes; the base variants keep their coverage from the ordinary `test` task.
+ *
+ * The classpath is assembled from the raw testRuntimeClasspath CONFIGURATION
+ * (dependencies only) plus the jar — deliberately NOT sourceSets.test.runtimeClasspath,
+ * which contains sourceSets.main.output and would shadow the jar with the classes dir.
+ */
+tasks.register("jarTest", Test) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.output + files(tasks.jar) + configurations.testRuntimeClasspath
+    useJUnitPlatform {
+        excludeTags "shutdown"
+    }
+}
+
+/*
+ * ── The other half of the multi-release test story: a REAL Java 17 JVM ──────────────
+ *
+ * The main test suite compiles at the 25 toolchain and cannot load on 17, so this is a
+ * separate, small smoke suite compiled at --release 17, run by a foojay-provisioned
+ * Liberica 17 launcher, with the JAR on its classpath. It is the only place the base
+ * variant's pre-21 branches (probe fails soft, ForkJoin fallback) execute on the JVM
+ * they exist for. First run downloads the JDK once; cached thereafter.
+ *
+ * No slf4j binding on purpose: the library must work against the no-op logger, and a
+ * smoke suite is the right place to prove it.
+ */
+sourceSets {
+    jarTest17 {
+        java.srcDirs = ["src/jarTest17/java"]
+    }
+}
+
+tasks.named("compileJarTest17Java") {
+    options.release = 17
+}
+
+dependencies {
+    jarTest17Implementation files(tasks.jar)   // compile against the artifact, not main output
+    /*
+     * A files() dependency carries no transitive metadata, so core's `api slf4j-api`
+     * does not follow it — declare it here. The API jar is required (core's classes
+     * reference LoggerFactory); the BINDING stays absent on purpose, so this suite also
+     * proves the library runs against slf4j's no-op logger.
+     */
+    jarTest17Implementation libs.slf4j.api
+    jarTest17Implementation libs.junit.jupiter
+    jarTest17RuntimeOnly libs.junit.platform.launcher
+    jarTest17Implementation libs.assertj
+}
+
+tasks.register("jarTest17", Test) {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+        vendor = JvmVendorSpec.BELLSOFT
+    }
+    testClassesDirs = sourceSets.jarTest17.output.classesDirs
+    classpath = sourceSets.jarTest17.output + files(tasks.jar) + configurations.jarTest17RuntimeClasspath
+}
+
+tasks.named("check") {
+    dependsOn "shutdownTest", "jarTest", "jarTest17"
+}

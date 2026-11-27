@@ -1,0 +1,42 @@
+### Java ###
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+*.hprof
+
+# Package files — except the Gradle wrapper's bootstrap jar, which MUST be committed: the
+# wrapper cannot download the pinned distribution without it.
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.war
+*.zip
+*.tar.gz
+
+### Gradle ###
+.gradle
+**/build/
+**/bin/
+!src/**/build/
+.gradletasknamecache
+
+### IDEs ###
+# IntelliJ IDEA: shared run configurations are tracked; everything else is per-developer.
+.idea/*
+!.idea/runConfigurations/
+# Eclipse / NetBeans
+.project
+.classpath
+.settings/
+*.factorypath
+
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+### Local runtime state ###
+logs/
+.claude/worktrees/
+.env

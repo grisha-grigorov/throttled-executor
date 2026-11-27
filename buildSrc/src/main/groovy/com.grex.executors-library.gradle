@@ -1,0 +1,101 @@
+/*
+ * Convention for every module of the executors library family (core/, jfr/, ...).
+ * Applied by each module's build.gradle
+ * via `id "com.grex.executors-library"`; dependencies stay in the module build files
+ * (the typed `libs.*` catalog accessors are not available inside buildSrc scripts, and a
+ * module's dependency list reads better next to the module anyway).
+ *
+ * What this pins, and why it is pinned HERE rather than per module: these are the things
+ * that must not drift between the modules of one published family — the Maven coordinates,
+ * the toolchain, the Java API floor, the test-JVM plumbing. One convention, zero copies.
+ */
+
+plugins {
+    id "java-library"
+    id "eclipse"
+}
+
+/*
+ * Maven coordinates. The family is heading for publication under the GitHub-verified
+ * io.github.<username> namespace that Maven Central requires. One version for the whole
+ * family: satellites depend on core by project, so they are released together.
+ */
+group = "io.github.grishagrigorov"
+version = "1.0.0"
+
+/*
+ * Toolchain: BellSoft Liberica 25, provisioned through the foojay resolver declared in
+ * settings.gradle. Compilation runs in the Gradle daemon rather than a forked javac (which is
+ * why no forkOptions are configured — with fork = false they are never read).
+ */
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+        vendor = JvmVendorSpec.BELLSOFT
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.fork = false
+    options.compilerArgs += [
+        "-Xdoclint:none",
+        "-Xlint:unchecked",
+        "-Xlint:deprecation",
+        "-nowarn",
+    ]
+}
+
+/*
+ * Core's multi-release jar copies the java21 source set's output into META-INF/versions/21;
+ * without an explicit strategy the jar task would reject the duplicated entry paths.
+ */
+tasks.withType(AbstractArchiveTask).configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+/*
+ * Java 17 API + bytecode FLOOR for main sources, on the 25 toolchain.
+ *
+ * The family is meant to be reusable by projects that will not move off Java 17 for
+ * years; the toolchain above is what the build RUNS on, `release` is what it COMPILES FOR. `options.release` is the load-bearing choice, NOT sourceCompatibility /
+ * targetCompatibility: `--release 17` also resolves against the Java 17 API signatures in
+ * ct.sym, so a compile-time call to a 21+ API (Executors.newVirtualThreadPerTaskExecutor,
+ * Thread.ofVirtual, List.getFirst, ScopedValue...) FAILS TO COMPILE rather than failing on
+ * a consumer's JVM. Virtual threads are reached by a reflective probe for exactly this
+ * reason. Test sources deliberately stay at the toolchain level (25) so tests may call
+ * Thread.isVirtual() directly; each module pins its emitted bytecode with a floor test.
+ */
+tasks.named("compileJava") {
+    options.release = 17
+}
+
+eclipse {
+    classpath {
+        downloadJavadoc = true
+        downloadSources = true
+    }
+}
+
+/*
+ * Every test task runs on the JUnit Platform and receives the family's tuning knobs from
+ * the Gradle command line — the backend selection (so a whole suite can be exercised
+ * against either backend) and the throughput-measurement parameters:
+ *
+ *     ./gradlew :executors-core:test -Dio.github.grishagrigorov.executors.backend=virtual
+ *     ./gradlew :executors-core:test --tests '*measureMax*' -Dexecutors.throughput.batch=20000
+ *
+ * Without this forwarding a -D on the command line would only reach the Gradle daemon,
+ * not the forked test JVM.
+ */
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    ["io.github.grishagrigorov.executors.backend",
+     "io.github.grishagrigorov.executors.virtualConcurrency",
+     "executors.throughput.tasks",
+     "executors.throughput.batch",
+     "executors.throughput.rounds"].each { key ->
+        if (System.getProperty(key) != null) {
+            systemProperty key, System.getProperty(key)
+        }
+    }
+}
