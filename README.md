@@ -1,4 +1,4 @@
-# executors
+# ThrottledExecutor
 
 A standalone Java library for bounded parallel execution. It provides
 **pluggable, policy-based throttling** over shared thread pools, an explicit
